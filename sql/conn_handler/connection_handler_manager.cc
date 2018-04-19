@@ -147,9 +147,11 @@ bool Connection_handler_manager::init()
   switch (Connection_handler_manager::thread_handling)
   {
   case SCHEDULER_ONE_THREAD_PER_CONNECTION:
+    // 正常每个连接一个线程
     connection_handler= new (std::nothrow) Per_thread_connection_handler();
     break;
   case SCHEDULER_NO_THREADS:
+    // 一般调试用的模式, 使用单线程只处理一个连接(没啥好看的不看了)
     connection_handler= new (std::nothrow) One_thread_connection_handler();
     break;
   default:
@@ -235,6 +237,7 @@ void Connection_handler_manager::load_connection_handler(
   m_saved_connection_handler= m_connection_handler;
   m_saved_thread_handling= Connection_handler_manager::thread_handling;
   m_connection_handler= conn_handler;
+  // 配置thread_handling类型为，scheduler_types_counts， 这样可以在插件中改变
   Connection_handler_manager::thread_handling= SCHEDULER_TYPES_COUNT;
   max_threads= m_connection_handler->get_max_threads();
 }
@@ -310,6 +313,7 @@ int my_connection_handler_set(Connection_handler_functions *chf,
   if (conn_handler == NULL)
     return 1;
 
+  // 加载连接管理插件
 #ifndef EMBEDDED_LIBRARY
   Connection_handler_manager::get_instance()->
     load_connection_handler(conn_handler);

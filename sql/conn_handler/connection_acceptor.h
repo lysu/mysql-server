@@ -52,6 +52,7 @@ public:
   */
   bool init_connection_acceptor()
   {
+    // 初始network时先把监听做好.
     return m_listener->setup_listener();
   }
 
@@ -63,6 +64,7 @@ public:
     Connection_handler_manager *mgr= Connection_handler_manager::get_instance();
     while (!abort_loop)
     {
+      // 使用poll非阻塞等待建立事件, 并accept连接, 返回的channelInfo本质就是连接封装
       Channel_info *channel_info= m_listener->listen_for_connection_event();
       if (channel_info != NULL)
         mgr->process_new_connection(channel_info);

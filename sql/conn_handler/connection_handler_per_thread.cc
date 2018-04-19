@@ -235,12 +235,14 @@ static THD* init_new_thd(Channel_info *channel_info)
 
 extern "C" void *handle_connection(void *arg)
 {
+  // 连接处理线程入口
   Global_THD_manager *thd_manager= Global_THD_manager::get_instance();
   Connection_handler_manager *handler_manager=
     Connection_handler_manager::get_instance();
   Channel_info* channel_info= static_cast<Channel_info*>(arg);
   bool pthread_reused MY_ATTRIBUTE((unused))= false;
 
+  // 初始化st_my_thread_var
   if (my_thread_init())
   {
     connection_errors_internal++;
@@ -291,6 +293,7 @@ extern "C" void *handle_connection(void *arg)
 
     thd_manager->add_thd(thd);
 
+    // 建立mysql连接, handshake部分
     if (thd_prepare_connection(thd))
       handler_manager->inc_aborted_connects();
     else
@@ -370,6 +373,7 @@ bool Per_thread_connection_handler::check_idle_thread_and_enqueue_connection(
   mysql_mutex_lock(&LOCK_thread_cache);
   if (Per_thread_connection_handler::blocked_pthread_count > wake_pthread)
   {
+    // 空闲线程数比等待连接多, 则放到queue中并唤起空闲线程来接活
     DBUG_PRINT("info",("waiting_channel_info_list->push %p", channel_info));
     waiting_channel_info_list->push_back(channel_info);
     wake_pthread++;
@@ -394,11 +398,11 @@ bool Per_thread_connection_handler::add_connection(Channel_info* channel_info)
 
   if (!check_idle_thread_and_enqueue_connection(channel_info))
     DBUG_RETURN(false);
-
   /*
     There are no idle threads avaliable to take up the new
     connection. Create a new thread to handle the connection
   */
+    // 没有空闲线程则启动新线程来接活
   channel_info->set_prior_thr_create_utime();
   error= mysql_thread_create(key_thread_one_connection, &id,
                              &connection_attrib,
