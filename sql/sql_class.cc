@@ -1196,7 +1196,7 @@ THD::THD(bool enable_plugins)
   server_id = ::server_id;
   unmasked_server_id = server_id;
   slave_net = 0;
-  set_command(COM_CONNECT);
+  set_command(COM_CONNECT);// 一上来一定是先init handshake回去
   *scramble= '\0';
 
   /* Call to init() below requires fully initialized Open_tables_state. */

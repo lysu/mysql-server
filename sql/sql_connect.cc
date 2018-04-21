@@ -681,6 +681,7 @@ static int check_connection(THD *thd)
     return 1;
   }
 
+  // 通过一个内部的com_connect去触发auth流程
   auth_rc= acl_authenticate(thd, COM_CONNECT);
 
   if (mysql_audit_notify(thd, AUDIT_EVENT(MYSQL_AUDIT_CONNECTION_CONNECT)))

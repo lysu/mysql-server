@@ -1918,6 +1918,7 @@ static int do_auth_once(THD *thd, const LEX_CSTRING &auth_plugin_name,
   bool unlock_plugin= false;
   plugin_ref plugin= NULL;
 
+  // 寻找auth plugin @see native_password_handler/sha256_password_handler and plugin/auth directory
   if (auth_plugin_name.str == native_password_plugin_name.str)
     plugin= native_password_plugin;
 #ifndef EMBEDDED_LIBRARY
@@ -1936,6 +1937,7 @@ static int do_auth_once(THD *thd, const LEX_CSTRING &auth_plugin_name,
   if (plugin)
   {
     st_mysql_auth *auth= (st_mysql_auth *) plugin_decl(plugin)->info;
+    // 具体用auth插件的校验逻辑走下
     res= auth->authenticate_user(mpvio, &mpvio->auth_info);
 
     if (unlock_plugin)
@@ -2163,6 +2165,7 @@ acl_authenticate(THD *thd, enum_server_command command)
   compile_time_assert(MYSQL_USERNAME_LENGTH == USERNAME_LENGTH);
   DBUG_ASSERT(command == COM_CONNECT || command == COM_CHANGE_USER);
 
+  // 初始化并设置好read/write回调
   server_mpvio_initialize(thd, &mpvio, &charset_adapter);
   /*
     Clear thd->db as it points to something, that will be freed when
@@ -2179,7 +2182,7 @@ acl_authenticate(THD *thd, enum_server_command command)
     mpvio.protocol->get_packet_length()));
 
   if (command == COM_CHANGE_USER)
-  {
+  { // 连上后的com_change_user处理
     mpvio.packets_written++; // pretend that a server handshake packet was sent
     mpvio.packets_read++;    // take COM_CHANGE_USER packet into account
 
@@ -2199,7 +2202,7 @@ acl_authenticate(THD *thd, enum_server_command command)
                 mpvio.status == MPVIO_EXT::SUCCESS);
   }
   else
-  {
+  { // 首次连接com_connect处理
     /* mark the thd as having no scramble yet */
     mpvio.scramble[SCRAMBLE_LENGTH]= 1;
     
@@ -2210,6 +2213,7 @@ acl_authenticate(THD *thd, enum_server_command command)
      the correct plugin.
     */
 
+    // 做第一次校验
     res= do_auth_once(thd, auth_plugin_name, &mpvio);
   }
 
@@ -2693,6 +2697,7 @@ int set_sha256_salt(const char* password MY_ATTRIBUTE((unused)),
   2. client sends the encrypted password back to the server
   3. the server checks the password.
 */
+// 经典mysql的校验实现
 static int native_password_authenticate(MYSQL_PLUGIN_VIO *vio,
                                         MYSQL_SERVER_AUTH_INFO *info)
 {
@@ -2707,6 +2712,7 @@ static int native_password_authenticate(MYSQL_PLUGIN_VIO *vio,
     generate_user_salt(mpvio->scramble, SCRAMBLE_LENGTH + 1);
 
   /* send it to the client */
+  // 发送handshake1
   if (mpvio->write_packet(mpvio, (uchar*) mpvio->scramble, SCRAMBLE_LENGTH + 1))
     DBUG_RETURN(CR_AUTH_HANDSHAKE);
 
@@ -2748,6 +2754,7 @@ static int native_password_authenticate(MYSQL_PLUGIN_VIO *vio,
   */
 
   /* read the reply with the encrypted password */
+  // 等待有用户名密码的请求到达.
   if ((pkt_len= mpvio->read_packet(mpvio, &pkt)) < 0)
     DBUG_RETURN(CR_AUTH_HANDSHAKE);
   DBUG_PRINT("info", ("reply read : pkt_len=%d", pkt_len));
